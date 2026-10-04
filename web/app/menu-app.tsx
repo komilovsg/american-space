@@ -1,8 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { load, save, som, type Cart, type Item, type Menu } from "@/lib/api";
+import { dishPhoto, load, save, som, type Cart, type Item, type Menu } from "@/lib/api";
 import Chat from "./chat";
 import Ticket from "./ticket";
 
@@ -13,6 +14,12 @@ export default function MenuApp({ menu, tableFromQr }: { menu: Menu; tableFromQr
   const [active, setActive] = useState(menu.categories[0].id);
   const ticketRef = useRef<HTMLDialogElement>(null);
   const chatRef = useRef<HTMLDialogElement>(null);
+  const dishRef = useRef<HTMLDialogElement>(null);
+  const [dish, setDish] = useState<Item | null>(null);
+  const openDish = (item: Item) => {
+    setDish(item);
+    dishRef.current?.showModal();
+  };
 
   const items = useMemo(() => Object.fromEntries(menu.categories.flatMap((c) => c.items.map((i) => [i.id, i]))), [menu]);
 
@@ -125,7 +132,7 @@ export default function MenuApp({ menu, tableFromQr }: { menu: Menu; tableFromQr
             <h2 className="mb-1 font-display text-3xl font-black uppercase tracking-tight sm:text-4xl">{c.name}</h2>
             <ul>
               {c.items.map((item) => (
-                <Row key={item.id} item={item} qty={cart[item.id] ?? 0} change={change} />
+                <Row key={item.id} item={item} qty={cart[item.id] ?? 0} change={change} open={openDish} eager={c === menu.categories[0]} />
               ))}
             </ul>
           </section>
@@ -165,6 +172,28 @@ export default function MenuApp({ menu, tableFromQr }: { menu: Menu; tableFromQr
       <Sheet refObj={ticketRef} label="Ваш чек">
         {ticket}
       </Sheet>
+      <Sheet refObj={dishRef} label={dish?.name ?? "Блюдо"}>
+        {dish && (
+          <div className="overflow-hidden rounded-3xl bg-card">
+            <Image src={dishPhoto(dish.id)} alt={dish.name} width={640} height={640} sizes="(min-width: 640px) 448px, 100vw" className="aspect-[4/3] w-full object-cover sm:aspect-square" />
+            <div className="p-5">
+              <div className="flex items-end gap-2">
+                <h3 className="font-display text-2xl font-bold leading-tight">{dish.name}</h3>
+                <span className="leader" aria-hidden />
+                <span className="font-mono text-2xl font-semibold">{dish.price}</span>
+              </div>
+              <p className="mt-2 text-muted">{dish.desc}</p>
+              <Meta item={dish} />
+              <div className="mt-5 flex items-center gap-3">
+                <Stepper item={dish} qty={cart[dish.id] ?? 0} change={change} big />
+                <button onClick={() => dishRef.current?.close()} className="ml-auto font-semibold text-muted underline">
+                  К меню
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Sheet>
       <Sheet refObj={chatRef} label="Помощник по меню" wide>
         <Chat items={items} cart={cart} change={change} />
       </Sheet>
@@ -172,47 +201,86 @@ export default function MenuApp({ menu, tableFromQr }: { menu: Menu; tableFromQr
   );
 }
 
-function Row({ item, qty, change }: { item: Item; qty: number; change: (id: string, d: number) => void }) {
+function Row({
+  item,
+  qty,
+  change,
+  open,
+  eager,
+}: {
+  item: Item;
+  qty: number;
+  change: (id: string, d: number) => void;
+  open: (item: Item) => void;
+  eager: boolean;
+}) {
   return (
-    <li className="flex items-start gap-3 border-b border-line py-4 last:border-0 sm:gap-5">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-end gap-2">
+    <li className="flex gap-4 border-b border-line py-4 last:border-0 sm:gap-5">
+      <button onClick={() => open(item)} aria-label={`Подробнее: ${item.name}`} className="shrink-0 overflow-hidden rounded-2xl">
+        <Image
+          src={dishPhoto(item.id)}
+          alt=""
+          width={256}
+          height={256}
+          sizes="(min-width: 640px) 144px, 112px"
+          loading={eager ? "eager" : "lazy"}
+          className="size-28 bg-line object-cover transition-transform duration-300 hover:scale-105 sm:size-36"
+        />
+      </button>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <button onClick={() => open(item)} className="flex items-end gap-2 text-left">
           <h3 className="text-[17px] font-semibold leading-tight sm:text-lg">{item.name}</h3>
           <span className="leader" aria-hidden />
           <span className="font-mono text-[17px] font-semibold">{item.price}</span>
-        </div>
-        <p className="mt-1 text-sm leading-snug text-muted">{item.desc}</p>
-        <p className="mt-1.5 flex flex-wrap gap-x-3 font-mono text-xs text-muted">
-          <span>{item.weight}</span>
-          {item.tags?.map((t) => (
-            <span key={t} className={t === "остро" ? "text-ketchup" : t === "хит" || t === "шеф советует" ? "text-ink" : ""}>
-              {t}
-            </span>
-          ))}
-        </p>
-      </div>
-      {qty ? (
-        <div className="flex shrink-0 items-center rounded-full bg-ink text-paper">
-          <button aria-label={`Убрать ${item.name}`} onClick={() => change(item.id, -1)} className="h-10 w-10 text-xl leading-none">
-            −
-          </button>
-          <span className="w-5 text-center font-mono font-semibold" aria-live="polite">
-            {qty}
-          </span>
-          <button aria-label={`Добавить ещё ${item.name}`} onClick={() => change(item.id, 1)} className="h-10 w-10 text-xl leading-none">
-            +
-          </button>
-        </div>
-      ) : (
-        <button
-          aria-label={`Добавить ${item.name}`}
-          onClick={() => change(item.id, 1)}
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full border-2 border-ink text-xl leading-none transition-colors hover:bg-ink hover:text-paper"
-        >
-          +
         </button>
-      )}
+        <p className="mt-1 line-clamp-2 text-sm leading-snug text-muted">{item.desc}</p>
+        <div className="mt-auto flex items-end justify-between gap-2 pt-2">
+          <Meta item={item} />
+          <Stepper item={item} qty={qty} change={change} />
+        </div>
+      </div>
     </li>
+  );
+}
+
+function Meta({ item }: { item: Item }) {
+  return (
+    <p className="mt-1.5 flex flex-wrap gap-x-3 font-mono text-xs text-muted">
+      <span>{item.weight}</span>
+      {item.tags?.map((t) => (
+        <span key={t} className={t === "остро" ? "text-ketchup" : t === "хит" || t === "шеф советует" ? "text-ink" : ""}>
+          {t}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+function Stepper({ item, qty, change, big }: { item: Item; qty: number; change: (id: string, d: number) => void; big?: boolean }) {
+  if (!qty)
+    return (
+      <button
+        aria-label={`Добавить ${item.name}`}
+        onClick={() => change(item.id, 1)}
+        className={`shrink-0 rounded-full border-2 border-ink font-semibold leading-none transition-colors hover:bg-ink hover:text-paper ${
+          big ? "bg-ink px-6 py-3.5 text-paper" : "grid h-10 w-10 place-items-center text-xl"
+        }`}
+      >
+        {big ? `В чек · ${som(item.price)}` : "+"}
+      </button>
+    );
+  return (
+    <div className="flex shrink-0 items-center rounded-full bg-ink text-paper">
+      <button aria-label={`Убрать ${item.name}`} onClick={() => change(item.id, -1)} className={`${big ? "h-12 w-12" : "h-10 w-10"} text-xl leading-none`}>
+        −
+      </button>
+      <span className="w-5 text-center font-mono font-semibold" aria-live="polite">
+        {qty}
+      </span>
+      <button aria-label={`Добавить ещё ${item.name}`} onClick={() => change(item.id, 1)} className={`${big ? "h-12 w-12" : "h-10 w-10"} text-xl leading-none`}>
+        +
+      </button>
+    </div>
   );
 }
 

@@ -25,6 +25,9 @@ async function parse<T>(res: Response): Promise<T> {
   throw new Error(typeof detail === "string" ? detail : "Не получилось. Проверьте интернет и попробуйте ещё раз.");
 }
 
+// Photos: Unsplash License (free, commercial use), see public/dishes/CREDITS.md
+export const dishPhoto = (id: string) => `/dishes/${id}.webp`;
+
 export const som = (n: number) => `${n.toLocaleString("ru-RU")} с.`;
 
 // ponytail: localStorage only remembers the guest's phone/table/cart on this device, the server is the source of truth

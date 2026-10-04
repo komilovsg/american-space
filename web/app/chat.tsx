@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { post, type Cart, type Item } from "@/lib/api";
+import Image from "next/image";
+import { dishPhoto, post, type Cart, type Item } from "@/lib/api";
 
 type Msg = { role: "user" | "assistant"; content: string; items?: string[] };
 
@@ -68,7 +69,8 @@ export default function Chat({
               {!!m.items?.length && (
                 <ul className="mt-3 space-y-2">
                   {m.items.map((id) => (
-                    <li key={id} className="flex items-center gap-2 rounded-xl bg-card px-3 py-2">
+                    <li key={id} className="flex items-center gap-2 rounded-xl bg-card p-2 pr-3">
+                      <Image src={dishPhoto(id)} alt="" width={96} height={96} className="size-11 shrink-0 rounded-lg object-cover" />
                       <span className="min-w-0 flex-1 truncate font-medium">{items[id].name}</span>
                       <span className="font-mono text-sm">{items[id].price}</span>
                       <button
