@@ -4,7 +4,7 @@ from contextlib import contextmanager
 
 import httpx
 import psycopg
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
@@ -178,8 +178,9 @@ SYSTEM = (
 
 
 @app.post("/chat")
-def chat(body: ChatIn):
-    key = os.getenv("AI_GATEWAY_API_KEY") or os.getenv("VERCEL_OIDC_TOKEN")
+def chat(body: ChatIn, request: Request):
+    # On Vercel the per-request OIDC token authenticates to AI Gateway, no key to manage.
+    key = os.getenv("AI_GATEWAY_API_KEY") or request.headers.get("x-vercel-oidc-token") or os.getenv("VERCEL_OIDC_TOKEN")
     if not key:
         raise HTTPException(503, "Помощник пока не подключен. Позовите официанта — он подскажет.")
     try:
