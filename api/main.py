@@ -13,7 +13,7 @@ from menu import MENU, ITEMS
 
 BONUS_RATE = 0.05  # 5% of the paid amount comes back as bonuses
 BONUS_MAX_SHARE = 0.5  # bonuses can cover at most half of the bill
-AI_MODEL = os.getenv("AI_MODEL", "anthropic/claude-haiku-4.5")
+AI_MODEL = os.getenv("AI_MODEL", "google/gemini-2.5-flash")
 
 app = FastAPI(title="American Space API")
 
