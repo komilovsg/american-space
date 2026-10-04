@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #eef1f6;
+  --color-card: #ffffff;
+  --color-ink: #0e1a3a;
+  --color-muted: #5b6785;
+  --color-line: #cdd3df;
+  --color-ketchup: #e2342d;
+  --color-mustard: #f5b700;
+  --font-display: var(--font-display);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-mustard);
+  outline-offset: 2px;
+}
+
+/* Diner menu-board leader: name ........ price */
+.leader {
+  flex: 1;
+  min-width: 1.5rem;
+  border-bottom: 2px dotted var(--color-line);
+  transform: translateY(-0.3em);
+}
+
+/* Guest check with perforated top and bottom edges */
+.ticket {
+  background: var(--color-card);
+  mask:
+    radial-gradient(circle 6px at 50% 0, transparent 98%, #000) top / 18px 51% repeat-x,
+    radial-gradient(circle 6px at 50% 100%, transparent 98%, #000) bottom / 18px 51% repeat-x;
+}
+.ticket-rule {
+  border-top: 2px dashed var(--color-line);
+}
+
+.stamp {
+  font-family: var(--font-display);
+  color: var(--color-ketchup);
+  border: 3px solid currentColor;
+  border-radius: 6px;
+  transform: rotate(-6deg);
+}
+
+dialog::backdrop {
+  background: rgb(14 26 58 / 0.55);
+}
+dialog[open] {
+  animation: sheet-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+@keyframes sheet-in {
+  from { transform: translateY(24px); opacity: 0; }
+}
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
