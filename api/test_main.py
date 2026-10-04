@@ -24,4 +24,5 @@ assert split_bonus(100, 80, True) == (50, 2)  # capped at half the bill
 assert split_bonus(100, 80, False) == (0, 5)
 assert strip_ids("Возьмите Картофель фри [fries].") == "Возьмите Картофель фри."
 assert strip_ids("В [burger-classic] есть чеддер") == "В Классический есть чеддер"
+assert strip_ids("К рибаю [steak-ribeye] возьмите") == "К рибаю возьмите"
 print("ok")

@@ -242,7 +242,8 @@ def strip_ids(text: str) -> str:
     """Drop [id] tags; if the model used the tag instead of the dish name, put the name back."""
     def sub(m: re.Match) -> str:
         item = ITEMS.get(m.group(1))
-        if not item or item["name"].lower() in text[max(0, m.start() - 60):m.start()].lower():
+        stem = item["name"].lower()[:4] if item else ""  # ponytail: 4-letter stem covers Russian case endings
+        if not item or stem in text[max(0, m.start() - 40):m.start()].lower():
             return ""
         return " " + item["name"]
     return re.sub(r"\s*\[([a-z0-9-]+)\]", sub, text)
