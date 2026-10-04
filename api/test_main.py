@@ -1,7 +1,7 @@
 # run: python test_main.py  (pure logic, no DB)
 from fastapi import HTTPException
 
-from main import LineIn, normalize_phone, price_lines, split_bonus
+from main import LineIn, normalize_phone, price_lines, split_bonus, strip_ids
 
 assert normalize_phone("90 123 45 67".replace(" ", "")[:9]) == "+992901234567"
 assert normalize_phone("+992 (90) 123-45-67") == "+992901234567"
@@ -22,4 +22,6 @@ except HTTPException:
 assert split_bonus(100, 0, True) == (0, 5)
 assert split_bonus(100, 80, True) == (50, 2)  # capped at half the bill
 assert split_bonus(100, 80, False) == (0, 5)
+assert strip_ids("Возьмите Картофель фри [fries].") == "Возьмите Картофель фри."
+assert strip_ids("В [burger-classic] есть чеддер") == "В Классический есть чеддер"
 print("ok")

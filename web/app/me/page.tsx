@@ -8,7 +8,7 @@ type Line = { id?: string; name?: string; qty?: number; price?: number; comment?
 type Order = { id: number; table_no: number; items: Line[]; total: number; bonus_used: number; bonus_earned: number; status: string; created_at: string };
 type Profile = { phone: string; bonus: number; orders: Order[] };
 
-const STATUS: Record<string, string> = { new: "Принят", cooking: "Готовится", served: "Подан", paid: "Оплачен" };
+const STATUS: Record<string, string> = { new: "Принят", awaiting_payment: "Ждёт оплаты", cooking: "Готовится", served: "Подан", paid: "Оплачен" };
 
 export default function Me() {
   const [phone, setPhone] = useState("");

@@ -3,7 +3,17 @@
 import { useEffect, useState } from "react";
 import { load, post, save, som, type Cart, type Item } from "@/lib/api";
 
-type Placed = { id: number; to_pay: number; bonus_used: number; bonus_earned: number; bonus: number };
+type Payment = "card" | "cash" | "alif" | "dc";
+type Placed = { id: number; to_pay: number; bonus_used: number; bonus_earned: number; bonus: number; payment: Payment; status: string };
+
+const PAYMENTS: [Payment, string][] = [
+  ["card", "Картой официанту"],
+  ["cash", "Наличными"],
+  ["alif", "Alif Mobi"],
+  ["dc", "DC Bank"],
+];
+const PAY_NAME = Object.fromEntries(PAYMENTS) as Record<Payment, string>;
+const isOnline = (p: Payment) => p === "alif" || p === "dc";
 
 export default function Ticket({
   cart,
@@ -21,9 +31,10 @@ export default function Ticket({
   onOrdered: (bonus: number) => void;
 }) {
   const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
   const [balance, setBalance] = useState(0);
   const [useBonus, setUseBonus] = useState(false);
-  const [payment, setPayment] = useState<"card" | "cash">("card");
+  const [payment, setPayment] = useState<Payment>("card");
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -32,6 +43,7 @@ export default function Ticket({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- restore device state from localStorage after hydration
     setPhone(load("as:phone", ""));
+    setName(load("as:name", ""));
     setBalance(load("as:bonus", 0) ?? 0);
   }, []);
 
@@ -43,8 +55,9 @@ export default function Ticket({
   async function checkPhone() {
     if (phone.replace(/\D/g, "").length < 9) return;
     try {
-      const u = await post<{ phone: string; bonus: number }>("/auth", { phone });
+      const u = await post<{ phone: string; name: string | null; bonus: number }>("/auth", { phone });
       setPhone(u.phone);
+      if (u.name && !name) setName(u.name);
       setBalance(u.bonus);
       save("as:phone", u.phone);
       save("as:bonus", u.bonus);
@@ -60,6 +73,7 @@ export default function Ticket({
     try {
       const res = await post<Placed>("/orders", {
         phone,
+        name,
         table,
         payment,
         comment,
@@ -67,6 +81,7 @@ export default function Ticket({
         items: lines.map(([id, qty]) => ({ id, qty })),
       });
       save("as:phone", phone);
+      save("as:name", name);
       setBalance(res.bonus);
       setUseBonus(false);
       setComment("");
@@ -79,13 +94,59 @@ export default function Ticket({
     }
   }
 
+  async function pay(confirm: boolean) {
+    if (!placed) return;
+    setError("");
+    if (!confirm) return setPlaced({ ...placed, status: "unpaid" });
+    setBusy(true);
+    try {
+      const r = await post<{ status: string }>(`/orders/${placed.id}/mock-pay`, {});
+      setPlaced({ ...placed, status: r.status });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Online payment step. ponytail: mock screen; real Alif/DC checkout redirects to the bank and returns here.
+  if (placed?.status === "awaiting_payment") {
+    return (
+      <div className="ticket relative px-6 py-10">
+        <p className="font-mono text-xs uppercase tracking-widest text-muted">Оплата заказа №{placed.id}</p>
+        <p className="mt-1 font-display text-2xl font-black uppercase">{PAY_NAME[placed.payment]}</p>
+        <p className="mt-4 rounded-lg bg-mustard/25 px-3 py-2.5 text-sm">Тестовый режим: деньги не списываются. Банк подключим после договора.</p>
+        <div className="ticket-rule my-6" />
+        <div className="flex items-baseline justify-between font-mono">
+          <span className="font-display text-lg font-bold uppercase">К оплате</span>
+          <span className="text-2xl font-bold">{som(placed.to_pay)}</span>
+        </div>
+        {error && <p role="alert" className="mt-4 rounded-lg bg-ketchup/10 px-3 py-2.5 text-sm text-ketchup">{error}</p>}
+        <button
+          disabled={busy}
+          onClick={() => pay(true)}
+          className="mt-6 w-full rounded-2xl bg-ketchup py-4 font-display text-base font-bold uppercase tracking-wide text-white disabled:opacity-60"
+        >
+          {busy ? "Оплачиваем…" : `Оплатить ${som(placed.to_pay)}`}
+        </button>
+        <button onClick={() => pay(false)} className="mt-3 w-full py-3 text-sm font-semibold text-muted underline">
+          Оплачу официанту
+        </button>
+      </div>
+    );
+  }
+
   if (placed) {
+    const paid = placed.status === "paid";
     return (
       <div className="ticket relative px-6 py-10 text-center">
-        <p className="stamp mx-auto inline-block px-4 py-2 text-2xl font-black uppercase">Принят</p>
+        <p className="stamp mx-auto inline-block px-4 py-2 text-2xl font-black uppercase">{paid ? "Оплачен" : "Принят"}</p>
         <p className="mt-6 font-display text-xl font-bold">Заказ №{placed.id} ушёл на кухню</p>
         <p className="mt-2 text-muted">
-          Официант принесёт его к столу {table}. К оплате {som(placed.to_pay)} — {payment === "card" ? "картой через терминал" : "наличными"}.
+          Официант принесёт его к столу {table}.{" "}
+          {paid
+            ? `Оплачено ${som(placed.to_pay)} через ${PAY_NAME[placed.payment]}.`
+            : `К оплате ${som(placed.to_pay)} — ${placed.payment === "cash" ? "наличными" : placed.payment === "card" ? "картой через терминал" : "официанту"}.`}
         </p>
         <div className="ticket-rule my-6" />
         <p className="font-mono text-sm">
@@ -173,6 +234,20 @@ export default function Ticket({
           <div className="ticket-rule my-5" />
 
           <label className="block">
+            <span className="text-sm font-semibold">Имя и фамилия</span>
+            <input
+              required
+              minLength={2}
+              maxLength={80}
+              autoComplete="name"
+              placeholder="Фарида Рахимова"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-2 w-full rounded-lg border-2 border-ink px-3 py-3 text-lg"
+            />
+          </label>
+
+          <label className="mt-4 block">
             <span className="text-sm font-semibold">Телефон</span>
             <span className="block text-xs text-muted">Сохраним заказ и начислим 5% бонусами</span>
             <input
@@ -200,13 +275,8 @@ export default function Ticket({
 
           <fieldset className="mt-4">
             <legend className="text-sm font-semibold">Оплата</legend>
-            <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-              {(
-                [
-                  ["card", "Картой"],
-                  ["cash", "Наличными"],
-                ] as const
-              ).map(([v, label]) => (
+            <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+              {PAYMENTS.map(([v, label]) => (
                 <label
                   key={v}
                   className={`cursor-pointer rounded-lg border-2 px-2 py-2.5 text-center font-semibold has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-mustard ${
@@ -217,10 +287,10 @@ export default function Ticket({
                   {label}
                 </label>
               ))}
-              {/* ponytail: online payment needs a merchant account (Alif / DC / Payme), wire it into /orders when one exists */}
-              <span className="rounded-lg border-2 border-dashed border-line px-2 py-2.5 text-center text-muted">Онлайн скоро</span>
             </div>
-            <p className="mt-2 text-xs text-muted">Официант принесёт терминал или сдачу к столу.</p>
+            <p className="mt-2 text-xs text-muted">
+              {isOnline(payment) ? "Оплатите сразу после отправки заказа." : "Официант принесёт терминал или сдачу к столу."}
+            </p>
           </fieldset>
 
           <div className="ticket-rule my-5" />
@@ -248,7 +318,7 @@ export default function Ticket({
             disabled={busy}
             className="mt-5 w-full rounded-2xl bg-ketchup py-4 font-display text-base font-bold uppercase tracking-wide text-white transition-transform active:scale-[0.98] disabled:opacity-60"
           >
-            {busy ? "Отправляем…" : "Отправить на кухню"}
+            {busy ? "Отправляем…" : isOnline(payment) ? "Перейти к оплате" : "Отправить на кухню"}
           </button>
         </>
       )}
