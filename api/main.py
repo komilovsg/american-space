@@ -196,7 +196,9 @@ def chat(body: ChatIn, request: Request):
             timeout=30,
         )
         res.raise_for_status()
-    except httpx.HTTPError:
+    except httpx.HTTPError as e:
+        body = e.response.text[:300] if isinstance(e, httpx.HTTPStatusError) else ""
+        print(f"ai gateway error: {e!r} {body} auth={'key' if os.getenv('AI_GATEWAY_API_KEY') else 'oidc'}")
         raise HTTPException(502, "Помощник не ответил. Спросите ещё раз через минуту.")
     reply = res.json()["choices"][0]["message"]["content"]
     ids = [i for i in dict.fromkeys(re.findall(r"\[([a-z0-9-]+)\]", reply)) if i in ITEMS]
